@@ -1,0 +1,101 @@
+<?php
+/**
+ * A simple PHP class for handel the paypal manager transaction 
+ *
+ * @author Cyerus
+ */
+class ManagerPaypal
+{
+    /**
+     * Stores all the default values of paypal.
+     * @var		array	$settings
+     */
+    private $settings = array(
+        'paypal_pro_username'	=> '',
+        'paypal_pro_password'	=> '',
+        'paypal_pro_partner'	=> '',
+        'paypal_pro_signature'	=> '',
+		 'sandbox'		=> false,
+    );
+	/**
+     * Simple construct (unused)
+     */
+    public function __construct() {	}
+
+    /**
+     * Stores a configuration parameter
+     *
+     * @param	string					$name	Name
+     * @return	string|bool|int|null			Get parameter
+     */
+    public function __get($name)
+    {
+        if (array_key_exists($name, $this->settings)) {
+            return $this->settings[$name];
+        }
+
+        return null;
+    }
+
+    /**
+     * Grabs a configuration parameter
+     *
+     * @param	string				$name	Name
+     * @param	string|bool|int		$value	Value
+     * @return	void
+     */
+    public function __set($name, $value)
+    {
+        $this->settings[$name] = $value;
+    }
+	
+	public function doPayment($data) {
+		// Set the API operation, version, and API signature in the request.
+		// here $data is data posted by payment form 
+		
+		$apiStr = 'TRXTYPE=S&TENDER=C&PWD='.urlencode($this->paypal_pro_password).'&PARTNER=PayPal&VENDOR='.urlencode($this->paypal_pro_signature).'&USER='.urlencode($this->paypal_pro_username).'&ACCT='.urlencode($data['CARD_NUMBER']).'&EXPDATE='.urlencode($data['EXPIRY']['MONTH'].$data['EXPIRY']['YEAR']).'&AMT='.urlencode($data['AMT']).'&FIRSTNAME='.urlencode($data['FIRSTNAME']).'&LASTNAME='.urlencode($data['LASTNAME']).'&STREET='.urlencode($data['STREET']).'&CITY='.urlencode($data['CITY']).'&EMAIL='.urlencode($data['EMAIL']).'&STATE='.urlencode($data['STATE']).'&INVNUM=123456789&STREET='.urlencode($data['STREET']).'&ZIP='.urlencode($data['ZIP']).'';
+		
+		/* working code 
+		$nvp22 = 'TRXTYPE=S&TENDER=C&PWD='.urlencode($pass).'&PARTNER=PayPal&VENDOR='.urlencode($merchantid).'&USER='.urlencode($uname).'&ACCT=5546232903172889&EXPDATE=0518&AMT=4.00&COMMENT1=Seco
+		nd purchase&COMMENT2=Low risk customer&INVNUM=123456789&STREET=5199
+		MAPLE&ZIP=94588';*/
+		if($this->sandbox) {
+           $endpoint = "https://pilot-payflowpro.paypal.com/"; // Sandbox testing
+        } else {
+            $endpoint = "https://payflowpro.paypal.com"; // Live
+        }
+		
+			
+		$ch = curl_init($endpoint);	
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+		curl_setopt($ch, CURLOPT_POST, TRUE);
+		
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $apiStr);			
+		$results = curl_exec($ch);
+		
+		if(!$results) {
+			exit("$methodName_ failed: ".curl_error($ch).'('.curl_errno($ch).')');
+		}
+
+		// Extract the response details.
+		$httpResponseAr = explode("&", $results);
+
+		$httpParsedResponseAr = array();
+		foreach ($httpResponseAr as $i => $value) {
+			$tmpAr = explode("=", $value);
+			if(sizeof($tmpAr) > 1) {
+				$httpParsedResponseAr[$tmpAr[0]] = $tmpAr[1];
+			}
+		}
+		
+		if((0 == sizeof($httpParsedResponseAr)) || !array_key_exists('PNREF', $httpParsedResponseAr)) {
+			return "Invalid HTTP Response for POST request($apiStr) to $endpoint.";
+		}else{
+			return $httpParsedResponseAr;
+		}
+		
+	}
+
+}
